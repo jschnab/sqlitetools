@@ -1,0 +1,3 @@
+SELECT AVG(float)
+FROM test_tb
+WHERE float > 1.0
