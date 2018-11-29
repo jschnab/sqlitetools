@@ -11,6 +11,7 @@ sys.path.insert(0, '../sqlitetools')
 from file2db import create_tb_str
 from file2db import row_to_exec_str
 from query_db import read_query_file
+from query_db import execute_query
 
 class Test_file2db(unittest.TestCase):
     """Test functions from file2db module."""
@@ -71,4 +72,30 @@ class Test_file2db(unittest.TestCase):
         
         self.assertEqual(ref_str, test_str)
         
+    def test_execute_query_title(self):
+        """Are the results from the database query correctly generated for title?"""
+        
+        #query string
+        exec_str = 'SELECT name, height FROM family WHERE age BETWEEN 20 AND 40 ORDER BY name'
+        
+        #reference strings
+        ref_title = '       name   height'
+        
+        title_str, row_str = execute_query('test_db.sq3', exec_str)
+        
+        self.assertEqual(title_str, ref_title)
+        
+        
+    def test_execute_query_row(self):
+        """Are the results from the database query correctly generated for row?"""
+        
+        #query string
+        exec_str = 'SELECT name, height FROM family WHERE age BETWEEN 20 AND 40 ORDER BY name'
+        
+        #reference strings
+        ref_row_0 = '   Jonathan      1.8'
+        
+        title_str, row_str = execute_query('test_db.sq3', exec_str)
+        
+        self.assertEqual(row_str, ref_row_0)
         

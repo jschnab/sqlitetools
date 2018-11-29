@@ -5,12 +5,13 @@
 import sys
 import getopt
 import sqlite3
+import re
 
 def print_help():
     """Print help text."""
     help_text = \
-    """Query an SQLite database with query from a text file and return the \
-query as a text file.
+    """Query an SQLite database with query from a string or text file and \
+return the query as a text file.
     
     python query_db.py -d[database] -q[query] -h
     
@@ -20,7 +21,8 @@ query as a text file.
     Full path to the database, including the file name.
     
     -q, --query
-    Full path to the text file containing the query, including the file name.
+    Query string or full path to the text file containing the query, including \
+the file name.
     
     -h, --help
     Print help.
@@ -49,24 +51,31 @@ def get_args():
         
     database = None
     table = None
-    query_file = None
+    query = None
         
     for opt, arg in opts:
         if opt in ('-d', '--database'):
             database = arg
         elif opt in ('-q', '--query'):
-            query_file = arg
+            query = arg
         elif opt in ('-h', '--help'):
             print_help()
             sys.exit()
             
-    if database == None | query_file == None:
+    if database == None or query == None:
         print('Please provide a database and a query.')
         sys.exit()
             
-    return database, table, query_file
+    return database, table, query
 
-def read_query_file(query_file):
+def read_query_str(query):
+    """Removes unsafe characters from the query string."""
+    
+    exec_str = query.replace(';', '').strip('\n')
+    
+    return exec_str
+
+def read_query_file(query):
     """Read the content of the query file and return a string to be executed by
     the SQLite cursor."""
     
@@ -75,7 +84,7 @@ def read_query_file(query_file):
     
     #read the query file and add each line to the executable string
     try:
-        with open(query_file, 'r') as file:
+        with open(query, 'r') as file:
             while 1:
                 line = file.readline()
                 if line == '':
@@ -95,18 +104,65 @@ def read_query_file(query_file):
     return exec_str
 
 def execute_query(database, exec_str):
-    """Execute a query with the SQLite cursor and return the results."""
+    """Execute a query with the SQLite cursor and saves the results in a text
+    file in the form of a table."""
     
     #connect to the database
     conn = sqlite3.connect(database)
     cur = conn.cursor()
     
+    #execute query string
     cur.execute(exec_str)
     
-    return None
+    #get title of table from executable string
+    exec_str = exec_str.lower()
+    sub_str = re.search('select(.+)from', exec_str)
+    title = sub_str.group(1).strip().split(', ')
+    
+    #get rows of table from cursor
+    rows = []
+    for line in cur:
+        rows.append(line)
+        
+    #get maximum width of query columns to format output string accordingly
+    widths = [len(i) for i in title]
+    for row in rows:
+        for idx, col in enumerate(row):
+            widths[idx] = max(widths[idx], len(str(col)))
+    
+    #make a string formatted with title names
+    str_list = []
+    for w in widths:
+        str_list.append('{:>' + str(w + 3) + '}')
+    title_str = ''.join(str_list).format(*title)
+    
+    #make an empty string to be formatted with rows from query
+    row_str = ''.join(str_list)
+        
+    #save query results in a text file
+    with open('results_query.txt', 'w') as file:
+        file.write(title_str + '\n')
+        file.write('-' * (sum(widths) + 3 * len(widths)) + '\n')
+        for row in rows:
+            file.write(row_str.format(*row) + '\n')
+    
+    #close database connection
+    cur.close()
+    conn.close()
+    
+    #for testing
+    return title_str, row_str.format(*rows[0])
 
 if __name__ == '__main__':
-    database, table, query_file = get_args()
-    exec_str = read_query_file(query_file)
-    _ = execute_query(exec_str)
+    database, table, query = get_args()
+    
+    #if the query is in a text file
+    if re.search('.txt$', query):
+        exec_str = read_query_file(query)
+    
+    #if query is a string
+    else:
+        exec_str = read_query_str(query)
+
+    _ = execute_query(database, exec_str)
     
