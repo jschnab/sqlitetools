@@ -123,10 +123,29 @@ def execute_query(database, exec_str):
     rows = []
     for line in cur:
         rows.append(line)
+
+    # change empty values to 'NULL' 
+    # (empty values give None, which is not a valid string)
+    # initialize empty list to be filled with values from rows
+    rows2 = [0] * len(rows)
+    # loop through rows tuples
+    for i in range(len(rows)):
+        # if None is in the tuple, copy element one by one
+        # and replace None by 'NULL'
+        if None in rows[i]:
+            elements = [0] * len(rows[i])
+            for j in range(len(rows[i])):
+                if rows[i][j] == None:
+                    elements[j] = 'NULL'
+                else:
+                    elements[j] = rows[i][j]
+            rows2[i] = elements
+        else:
+            rows2[i] = rows[i]
         
     #get maximum width of query columns to format output string accordingly
     widths = [len(i) for i in title]
-    for row in rows:
+    for row in rows2:
         for idx, col in enumerate(row):
             widths[idx] = max(widths[idx], len(str(col)))
     
@@ -140,10 +159,15 @@ def execute_query(database, exec_str):
     row_str = ''.join(str_list)
         
     #save query results in a text file
-    with open('results_query.txt', 'w') as file:
+    # add results to the query file name to give the output file name
+    if sys.platform == 'linux':
+        output_file = 'results_' + query.split('/')[-1]
+    elif sys.platform == 'win32':
+        output_file = 'results_' + query.split('\\')[-1]
+    with open(output_file, 'w') as file:
         file.write(title_str + '\n')
         file.write('-' * (sum(widths) + 3 * len(widths)) + '\n')
-        for row in rows:
+        for row in rows2:
             file.write(row_str.format(*row) + '\n')
     
     #close database connection
@@ -151,7 +175,7 @@ def execute_query(database, exec_str):
     conn.close()
     
     #for testing
-    return title_str, row_str.format(*rows[0])
+    return title_str, row_str.format(*rows2[0])
 
 if __name__ == '__main__':
     database, table, query = get_args()
