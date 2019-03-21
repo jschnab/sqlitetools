@@ -107,23 +107,29 @@ def execute_query(database, exec_str):
     """Execute a query with the SQLite cursor and saves the results in a text
     file in the form of a table."""
     
-    #connect to the database
+    # connect to the database
     conn = sqlite3.connect(database)
     cur = conn.cursor()
     
-    #execute query string
+    # execute query string and get rows from cursor
     cur.execute(exec_str)
-    
-    #get title of table from executable string
+    rows = [line for line in cur]
+
+    # get title of table from executable string
     exec_str = exec_str.lower()
     sub_str = re.search('select(.+)from', exec_str)
-    title = sub_str.group(1).strip().split(', ')
-    
-    #get rows of table from cursor
-    rows = []
-    for line in cur:
-        rows.append(line)
 
+    # if we queried everything, we extract field names from table info
+    if sub_str.group(1).strip() == '*':
+        tb_name = re.search('from\s([\w]+)', exec_str).group(1)
+        info = cur.execute('PRAGMA table_info ({})'.format(tb_name))
+        title = [row[1] for row in info]
+
+    # if the query contains individual field names, we get them    
+    else:
+        title = sub_str.group(1).strip().split(', ')
+    
+    
     # change empty values to 'NULL' 
     # (empty values give None, which is not a valid string)
     # initialize empty list to be filled with values from rows
@@ -142,7 +148,7 @@ def execute_query(database, exec_str):
             rows2[i] = elements
         else:
             rows2[i] = rows[i]
-        
+
     #get maximum width of query columns to format output string accordingly
     widths = [len(i) for i in title]
     for row in rows2:
